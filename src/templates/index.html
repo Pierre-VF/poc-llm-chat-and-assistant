@@ -9,6 +9,14 @@
     <h1>Chat</h1>
     <div id="chat"></div>
     <div id="message-container">
+        <div style="margin-bottom: 10px;">
+            <input type="file" id="file-upload" style="display: none;">
+            <button onclick="document.getElementById('file-upload').click()"
+                    style="padding: 10px 15px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                Upload File
+            </button>
+            <span id="file-status" style="margin-left: 10px; font-size: 0.9em;"></span>
+        </div>
         <input type="text" id="message" placeholder="Type your message...">
         <button onclick="sendMessage()">Send</button>
     </div>
@@ -18,16 +26,6 @@
         const messageInput = document.getElementById("message");
         const ws = new WebSocket("ws://localhost:8000/ws");
         let currentBotMessage = null;
-
-        ws.onmessage = (event) => {
-            if (!currentBotMessage) {
-                currentBotMessage = document.createElement("div");
-                currentBotMessage.className = "message-bubble bot-message";
-                chat.appendChild(currentBotMessage);
-            }
-            currentBotMessage.innerHTML = marked.parse(event.data);
-            chat.scrollTop = chat.scrollHeight;
-        };
 
         function sendMessage() {
             const message = messageInput.value.trim();
@@ -46,6 +44,52 @@
         messageInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") sendMessage();
         });
+
+        document.getElementById('file-upload').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusElement = document.getElementById('file-status');
+            statusElement.textContent = `Uploading ${file.name}...`;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                statusElement.textContent = `Loaded: ${result.filename}`;
+                ws.send(`file:${result.filename}`);
+            } catch (error) {
+                statusElement.textContent = `Error uploading file`;
+                console.error('Upload error:', error);
+            }
+        });
+
+        ws.onmessage = (event) => {
+            // Handle file loading messages
+            if (event.data.startsWith("Loaded file:") || event.data.startsWith("Error:")) {
+                const statusElement = document.createElement("div");
+                statusElement.className = "file-message";
+                statusElement.textContent = event.data;
+                chat.appendChild(statusElement);
+                chat.scrollTop = chat.scrollHeight;
+                return;
+            }
+
+            // Handle regular chat messages
+            if (!currentBotMessage) {
+                currentBotMessage = document.createElement("div");
+                currentBotMessage.className = "message-bubble bot-message";
+                chat.appendChild(currentBotMessage);
+            }
+            currentBotMessage.innerHTML = marked.parse(event.data);
+            chat.scrollTop = chat.scrollHeight;
+        };
     </script>
 </body>
 </html>
