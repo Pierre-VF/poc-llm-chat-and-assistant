@@ -6,8 +6,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
-from pydantic_ai.models.mistral import MistralModel
-from pydantic_ai.providers.mistral import MistralProvider
 from pydantic_settings import BaseSettings
 
 
@@ -25,13 +23,48 @@ _SETTINGS = Settings()
 # ====================================================================================
 #   Model configuration
 # ====================================================================================
-model = MistralModel(
-    _SETTINGS.LLM_MODEL,
-    provider=MistralProvider(
-        base_url=_SETTINGS.LLM_URL,
-        api_key=_SETTINGS.LLM_API_KEY,
-    ),
-)
+
+model_name = _SETTINGS.LLM_MODEL.lower()
+
+if model_name.startswith("mistralai/"):
+    from pydantic_ai.models.mistral import MistralModel
+    from pydantic_ai.providers.mistral import MistralProvider
+
+    model = MistralModel(
+        _SETTINGS.LLM_MODEL,
+        provider=MistralProvider(
+            base_url=_SETTINGS.LLM_URL,
+            api_key=_SETTINGS.LLM_API_KEY,
+        ),
+    )
+
+elif model_name.startswith("openai/"):
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    model = OpenAIChatModel(
+        _SETTINGS.LLM_MODEL,
+        provider=OpenAIProvider(
+            base_url=_SETTINGS.LLM_URL,
+            api_key=_SETTINGS.LLM_API_KEY,
+        ),
+    )
+
+elif model_name.startswith("openai/"):
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    model = OpenAIChatModel(
+        _SETTINGS.LLM_MODEL,
+        provider=OpenAIProvider(
+            base_url=_SETTINGS.LLM_URL,
+            api_key=_SETTINGS.LLM_API_KEY,
+        ),
+    )
+
+else:
+    raise EnvironmentError(f"Model not supported ({model_name})")
+
 agent = Agent(
     model,
     instructions="Be concise, reply with short sentences.",

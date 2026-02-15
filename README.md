@@ -39,4 +39,6 @@ This app provides a clean, responsive web interface for chatting with a self-hos
 
 2. Copy the `.env-example` to a `.env` file and adjust accordingly to match your local model deployment.
 
-3. Run with `uv run app.py`
+3. Install the dependencies with `uv sync --all-groups`
+
+4. Run with `uv run app.py`
