@@ -1,6 +1,6 @@
-import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,8 +8,38 @@ from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
 from pydantic_ai.models.mistral import MistralModel
 from pydantic_ai.providers.mistral import MistralProvider
+from pydantic_settings import BaseSettings
 
-os.environ["MISTRAL_API_KEY"] = "not needed"
+
+# Settings to start with
+class Settings(BaseSettings):
+    LLM_API_KEY: str = "not needed"
+    LLM_URL: str
+    LLM_MODEL: str
+
+
+load_dotenv()
+_SETTINGS = Settings()
+
+
+# ====================================================================================
+#   Model configuration
+# ====================================================================================
+model = MistralModel(
+    _SETTINGS.LLM_MODEL,
+    provider=MistralProvider(
+        base_url=_SETTINGS.LLM_URL,
+        api_key=_SETTINGS.LLM_API_KEY,
+    ),
+)
+agent = Agent(
+    model,
+    instructions="Be concise, reply with short sentences.",
+)
+
+# ====================================================================================
+#   App configuration
+# ====================================================================================
 
 app = FastAPI()
 
@@ -20,16 +50,6 @@ app.mount(
     name="static",
 )
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-
-# Configure the model to point to your self-hosted Mistral endpoint
-model = MistralModel(
-    "mistralai/ministral-3-3b",
-    provider=MistralProvider(base_url="http://172.24.112.1:1234"),
-)
-agent = Agent(
-    model,
-    instructions="Be concise, reply with one sentence.",
-)
 
 
 @app.get("/", response_class=HTMLResponse)
