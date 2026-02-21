@@ -1,24 +1,13 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, File, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic_ai import Agent
-from pydantic_settings import BaseSettings
 
-
-# Settings to start with
-class Settings(BaseSettings):
-    LLM_API_KEY: str = "not needed"
-    LLM_URL: str
-    LLM_MODEL: str
-
-
-load_dotenv()
-_SETTINGS = Settings()
+from src.config import SETTINGS as _SETTINGS
 
 UPLOAD_DIR = Path(__file__).parent.parent / "_temp_files"
 os.makedirs(str(UPLOAD_DIR), exist_ok=True)
@@ -27,51 +16,14 @@ os.makedirs(str(UPLOAD_DIR), exist_ok=True)
 #   Model configuration
 # ====================================================================================
 
-model_name = _SETTINGS.LLM_MODEL.lower()
-
-if model_name.startswith("mistralai/"):
-    from pydantic_ai.models.mistral import MistralModel
-    from pydantic_ai.providers.mistral import MistralProvider
-
-    model = MistralModel(
-        _SETTINGS.LLM_MODEL,
-        provider=MistralProvider(
-            base_url=_SETTINGS.LLM_URL,
-            api_key=_SETTINGS.LLM_API_KEY,
-        ),
-    )
-
-elif model_name.startswith("openai/"):
-    from pydantic_ai.models.openai import OpenAIChatModel
-    from pydantic_ai.providers.openai import OpenAIProvider
-
-    model = OpenAIChatModel(
-        _SETTINGS.LLM_MODEL,
-        provider=OpenAIProvider(
-            base_url=_SETTINGS.LLM_URL,
-            api_key=_SETTINGS.LLM_API_KEY,
-        ),
-    )
-
-elif model_name.startswith("openai/"):
-    from pydantic_ai.models.openai import OpenAIChatModel
-    from pydantic_ai.providers.openai import OpenAIProvider
-
-    model = OpenAIChatModel(
-        _SETTINGS.LLM_MODEL,
-        provider=OpenAIProvider(
-            base_url=_SETTINGS.LLM_URL,
-            api_key=_SETTINGS.LLM_API_KEY,
-        ),
-    )
-
-else:
-    raise EnvironmentError(f"Model not supported ({model_name})")
 
 agent = Agent(
-    model,
+    _SETTINGS.model,
     instructions="Be concise, reply with short sentences.",
 )
+
+app = agent.to_web()
+
 
 # ====================================================================================
 #   App configuration
@@ -104,6 +56,7 @@ async def upload_file(file: UploadFile = File(...)):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    full_prompt = []
     while True:
         try:
             user_prompt = await websocket.receive_text()
@@ -113,21 +66,32 @@ async def websocket_endpoint(websocket: WebSocket):
             if user_prompt.startswith("file:"):
                 filename = user_prompt[5:]
                 file_path = str(UPLOAD_DIR / filename)
+                print(f"Trying to read from {file_path}")
                 if os.path.exists(file_path):
                     with open(file_path, "r") as f:
                         file_content = {"filename": filename, "content": f.read()}
+                    print("File OK")
                 else:
                     await websocket.send_text(f"Error: File {filename} not found")
+                    print("File not OK")
                 continue
 
+            full_prompt.append(user_prompt)
+
             if file_content:
-                user_prompt = f"""{user_prompt}
-
+                full_prompt.append(f"""
 File content from {file_content["filename"]}: {file_content["content"]}
-"""
+""")
 
-            async with agent.run_stream(user_prompt) as result:
+            async with agent.run_stream(full_prompt) as result:
                 async for message in result.stream_text():
                     await websocket.send_text(message)
+
+            print(f""" 
+                  
+User prompt was:
+                  
+{user_prompt}
+                  """)
         except WebSocketDisconnect:
             break

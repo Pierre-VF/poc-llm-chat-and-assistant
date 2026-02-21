@@ -549,6 +549,9 @@ mistral = [
 openai = [
     { name = "pydantic-ai-slim", extra = ["openai"] },
 ]
+web = [
+    { name = "pydantic-ai-slim", extra = ["web"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -563,6 +566,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 mistral = [{ name = "pydantic-ai-slim", extras = ["mistral"], specifier = ">=1.59.0" }]
 openai = [{ name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=1.59.0" }]
+web = [{ name = "pydantic-ai-slim", extras = ["web"], specifier = ">=1.59.0" }]
 
 [[package]]
 name = "protobuf"
@@ -619,6 +623,11 @@ mistral = [
 openai = [
     { name = "openai" },
     { name = "tiktoken" },
+]
+web = [
+    { name = "httpx" },
+    { name = "starlette" },
+    { name = "uvicorn" },
 ]
 
 [[package]]

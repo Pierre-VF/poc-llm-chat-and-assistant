@@ -20,3 +20,6 @@ mistral = [
 openai = [
     "pydantic-ai-slim[openai]>=1.59.0",
 ]
+web = [
+    "pydantic-ai-slim[web]>=1.59.0",
+]
